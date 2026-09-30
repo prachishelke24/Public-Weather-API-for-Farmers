@@ -1,12 +1,28 @@
 from flask import Flask, jsonify
 from flask_caching import Cache
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import requests
 
 app = Flask(__name__)
+
+# Rate Limiting
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["30 per minute"]
+)
+
+# Response Caching
 cache = Cache(app, config={
     "CACHE_TYPE": "SimpleCache",
     "CACHE_DEFAULT_TIMEOUT": 300
 })
+
+
+# --------------------------------
+# Home
+# --------------------------------
 
 @app.route("/")
 def home():
@@ -16,6 +32,10 @@ def home():
     })
 
 
+# --------------------------------
+# Health Check
+# --------------------------------
+
 @app.route("/api/health")
 def health():
     return jsonify({
@@ -24,11 +44,16 @@ def health():
     })
 
 
+# --------------------------------
+# Current Weather
+# --------------------------------
+
 @app.route("/api/weather/<location>")
 @cache.cached()
 def weather(location):
+
     try:
-        # Step 1: Find latitude and longitude of the location
+
         geo_url = "https://geocoding-api.open-meteo.com/v1/search"
 
         geo_params = {
@@ -45,9 +70,11 @@ def weather(location):
         )
 
         geo_response.raise_for_status()
+
         geo_data = geo_response.json()
 
         if "results" not in geo_data or not geo_data["results"]:
+
             return jsonify({
                 "error": "Location not found",
                 "location": location
@@ -58,7 +85,6 @@ def weather(location):
         latitude = place["latitude"]
         longitude = place["longitude"]
 
-        # Step 2: Get current weather
         weather_url = "https://api.open-meteo.com/v1/forecast"
 
         weather_params = {
@@ -82,9 +108,9 @@ def weather(location):
         )
 
         weather_response.raise_for_status()
+
         weather_data = weather_response.json()
 
-        # Step 3: Return a clean REST API response
         return jsonify({
             "location": place.get("name"),
             "country": place.get("country"),
@@ -94,19 +120,27 @@ def weather(location):
         })
 
     except requests.exceptions.RequestException:
+
         return jsonify({
             "error": "Weather service is currently unavailable"
         }), 503
 
     except Exception:
+
         return jsonify({
             "error": "An unexpected error occurred"
         }), 500
 
+
+# --------------------------------
+# 7-Day Forecast
+# --------------------------------
+
 @app.route("/api/forecast/<location>")
 def forecast(location):
+
     try:
-        # Step 1: Find latitude and longitude of the location
+
         geo_url = "https://geocoding-api.open-meteo.com/v1/search"
 
         geo_params = {
@@ -123,9 +157,11 @@ def forecast(location):
         )
 
         geo_response.raise_for_status()
+
         geo_data = geo_response.json()
 
         if "results" not in geo_data or not geo_data["results"]:
+
             return jsonify({
                 "error": "Location not found",
                 "location": location
@@ -136,7 +172,6 @@ def forecast(location):
         latitude = place["latitude"]
         longitude = place["longitude"]
 
-        # Step 2: Get 7-day weather forecast
         forecast_url = "https://api.open-meteo.com/v1/forecast"
 
         forecast_params = {
@@ -160,9 +195,9 @@ def forecast(location):
         )
 
         forecast_response.raise_for_status()
+
         forecast_data = forecast_response.json()
 
-        # Step 3: Return clean REST API response
         return jsonify({
             "location": place.get("name"),
             "country": place.get("country"),
@@ -172,54 +207,80 @@ def forecast(location):
         })
 
     except requests.exceptions.RequestException:
+
         return jsonify({
             "error": "Weather service is currently unavailable"
         }), 503
 
     except Exception:
+
         return jsonify({
             "error": "An unexpected error occurred"
         }), 500
 
+
+# --------------------------------
+# Crop Advisory
+# --------------------------------
+
 @app.route("/api/advisory/<crop>")
 def advisory(crop):
+
     crop = crop.lower()
 
     advisories = {
+
         "wheat": {
             "crop": "Wheat",
-            "irrigation": "Provide regular irrigation during the growing period.",
-            "rain_advice": "Avoid excessive irrigation during periods of heavy rainfall.",
-            "temperature": "Suitable temperature is approximately 15°C to 25°C.",
-            "recommendation": "Monitor soil moisture and protect the crop from waterlogging."
+            "irrigation":
+                "Provide regular irrigation during the growing period.",
+            "rain_advice":
+                "Avoid excessive irrigation during periods of heavy rainfall.",
+            "temperature":
+                "Suitable temperature is approximately 15°C to 25°C.",
+            "recommendation":
+                "Monitor soil moisture and protect the crop from waterlogging."
         },
 
         "rice": {
             "crop": "Rice",
-            "irrigation": "Maintain adequate water in the field during the growing stage.",
-            "rain_advice": "Ensure proper drainage during excessive rainfall.",
-            "temperature": "Suitable temperature is approximately 20°C to 35°C.",
-            "recommendation": "Monitor water levels and check regularly for pests and diseases."
+            "irrigation":
+                "Maintain adequate water in the field during the growing stage.",
+            "rain_advice":
+                "Ensure proper drainage during excessive rainfall.",
+            "temperature":
+                "Suitable temperature is approximately 20°C to 35°C.",
+            "recommendation":
+                "Monitor water levels and check regularly for pests and diseases."
         },
 
         "cotton": {
             "crop": "Cotton",
-            "irrigation": "Provide irrigation when soil moisture becomes low.",
-            "rain_advice": "Avoid waterlogging and ensure proper drainage.",
-            "temperature": "Suitable temperature is approximately 21°C to 30°C.",
-            "recommendation": "Monitor soil moisture and regularly inspect plants for pests."
+            "irrigation":
+                "Provide irrigation when soil moisture becomes low.",
+            "rain_advice":
+                "Avoid waterlogging and ensure proper drainage.",
+            "temperature":
+                "Suitable temperature is approximately 21°C to 30°C.",
+            "recommendation":
+                "Monitor soil moisture and regularly inspect plants for pests."
         },
 
         "sugarcane": {
             "crop": "Sugarcane",
-            "irrigation": "Provide regular irrigation, especially during dry periods.",
-            "rain_advice": "Ensure proper drainage during heavy rainfall.",
-            "temperature": "Suitable temperature is approximately 20°C to 35°C.",
-            "recommendation": "Maintain soil moisture and monitor the crop for pests."
+            "irrigation":
+                "Provide regular irrigation, especially during dry periods.",
+            "rain_advice":
+                "Ensure proper drainage during heavy rainfall.",
+            "temperature":
+                "Suitable temperature is approximately 20°C to 35°C.",
+            "recommendation":
+                "Maintain soil moisture and monitor the crop for pests."
         }
     }
 
     if crop not in advisories:
+
         return jsonify({
             "error": "Crop advisory not available",
             "crop": crop,
@@ -231,10 +292,16 @@ def advisory(crop):
         "advisory": advisories[crop]
     })
 
+
+# --------------------------------
+# Weather Alerts
+# --------------------------------
+
 @app.route("/api/alerts/<location>")
 def alerts(location):
+
     try:
-        # Step 1: Find latitude and longitude
+
         geo_url = "https://geocoding-api.open-meteo.com/v1/search"
 
         geo_params = {
@@ -251,9 +318,11 @@ def alerts(location):
         )
 
         geo_response.raise_for_status()
+
         geo_data = geo_response.json()
 
         if "results" not in geo_data or not geo_data["results"]:
+
             return jsonify({
                 "error": "Location not found",
                 "location": location
@@ -264,7 +333,6 @@ def alerts(location):
         latitude = place["latitude"]
         longitude = place["longitude"]
 
-        # Step 2: Get current weather data
         weather_url = "https://api.open-meteo.com/v1/forecast"
 
         weather_params = {
@@ -285,6 +353,7 @@ def alerts(location):
         )
 
         weather_response.raise_for_status()
+
         weather_data = weather_response.json()
 
         current = weather_data.get("current", {})
@@ -295,35 +364,40 @@ def alerts(location):
 
         alerts_list = []
 
-        # Heavy rain alert
         if precipitation is not None and precipitation >= 10:
+
             alerts_list.append({
                 "type": "Heavy Rain",
                 "severity": "High",
-                "message": "Heavy rainfall detected. Avoid unnecessary field operations."
+                "message":
+                    "Heavy rainfall detected. Avoid unnecessary field operations."
             })
 
-        # High temperature alert
         if temperature is not None and temperature >= 35:
+
             alerts_list.append({
                 "type": "High Temperature",
                 "severity": "Medium",
-                "message": "High temperature detected. Monitor crop water requirements."
+                "message":
+                    "High temperature detected. Monitor crop water requirements."
             })
 
-        # Strong wind alert
         if wind_speed is not None and wind_speed >= 40:
+
             alerts_list.append({
                 "type": "Strong Wind",
                 "severity": "High",
-                "message": "Strong winds detected. Protect crops and check vulnerable structures."
+                "message":
+                    "Strong winds detected. Protect crops and check vulnerable structures."
             })
 
         if not alerts_list:
+
             alerts_list.append({
                 "type": "No Major Alert",
                 "severity": "Low",
-                "message": "No major weather alerts detected at this time."
+                "message":
+                    "No major weather alerts detected at this time."
             })
 
         return jsonify({
@@ -334,14 +408,21 @@ def alerts(location):
         })
 
     except requests.exceptions.RequestException:
+
         return jsonify({
             "error": "Weather service is currently unavailable"
         }), 503
 
     except Exception:
+
         return jsonify({
             "error": "An unexpected error occurred"
         }), 500
-    
+
+
+# --------------------------------
+# Run Flask
+# --------------------------------
+
 if __name__ == "__main__":
     app.run(debug=True)
