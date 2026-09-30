@@ -1,8 +1,12 @@
 from flask import Flask, jsonify
+from flask_caching import Cache
 import requests
 
 app = Flask(__name__)
-
+cache = Cache(app, config={
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 300
+})
 
 @app.route("/")
 def home():
@@ -21,6 +25,7 @@ def health():
 
 
 @app.route("/api/weather/<location>")
+@cache.cached()
 def weather(location):
     try:
         # Step 1: Find latitude and longitude of the location
