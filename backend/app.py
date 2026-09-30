@@ -225,5 +225,118 @@ def advisory(crop):
         "status": "success",
         "advisory": advisories[crop]
     })
+
+@app.route("/api/alerts/<location>")
+def alerts(location):
+    try:
+        # Step 1: Find latitude and longitude
+        geo_url = "https://geocoding-api.open-meteo.com/v1/search"
+
+        geo_params = {
+            "name": location,
+            "count": 1,
+            "language": "en",
+            "format": "json"
+        }
+
+        geo_response = requests.get(
+            geo_url,
+            params=geo_params,
+            timeout=10
+        )
+
+        geo_response.raise_for_status()
+        geo_data = geo_response.json()
+
+        if "results" not in geo_data or not geo_data["results"]:
+            return jsonify({
+                "error": "Location not found",
+                "location": location
+            }), 404
+
+        place = geo_data["results"][0]
+
+        latitude = place["latitude"]
+        longitude = place["longitude"]
+
+        # Step 2: Get current weather data
+        weather_url = "https://api.open-meteo.com/v1/forecast"
+
+        weather_params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "current": (
+                "temperature_2m,"
+                "precipitation,"
+                "wind_speed_10m"
+            ),
+            "timezone": "auto"
+        }
+
+        weather_response = requests.get(
+            weather_url,
+            params=weather_params,
+            timeout=10
+        )
+
+        weather_response.raise_for_status()
+        weather_data = weather_response.json()
+
+        current = weather_data.get("current", {})
+
+        temperature = current.get("temperature_2m")
+        precipitation = current.get("precipitation")
+        wind_speed = current.get("wind_speed_10m")
+
+        alerts_list = []
+
+        # Heavy rain alert
+        if precipitation is not None and precipitation >= 10:
+            alerts_list.append({
+                "type": "Heavy Rain",
+                "severity": "High",
+                "message": "Heavy rainfall detected. Avoid unnecessary field operations."
+            })
+
+        # High temperature alert
+        if temperature is not None and temperature >= 35:
+            alerts_list.append({
+                "type": "High Temperature",
+                "severity": "Medium",
+                "message": "High temperature detected. Monitor crop water requirements."
+            })
+
+        # Strong wind alert
+        if wind_speed is not None and wind_speed >= 40:
+            alerts_list.append({
+                "type": "Strong Wind",
+                "severity": "High",
+                "message": "Strong winds detected. Protect crops and check vulnerable structures."
+            })
+
+        if not alerts_list:
+            alerts_list.append({
+                "type": "No Major Alert",
+                "severity": "Low",
+                "message": "No major weather alerts detected at this time."
+            })
+
+        return jsonify({
+            "location": place.get("name"),
+            "country": place.get("country"),
+            "alerts": alerts_list,
+            "current_weather": current
+        })
+
+    except requests.exceptions.RequestException:
+        return jsonify({
+            "error": "Weather service is currently unavailable"
+        }), 503
+
+    except Exception:
+        return jsonify({
+            "error": "An unexpected error occurred"
+        }), 500
+    
 if __name__ == "__main__":
     app.run(debug=True)
