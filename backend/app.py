@@ -175,5 +175,55 @@ def forecast(location):
         return jsonify({
             "error": "An unexpected error occurred"
         }), 500
+
+@app.route("/api/advisory/<crop>")
+def advisory(crop):
+    crop = crop.lower()
+
+    advisories = {
+        "wheat": {
+            "crop": "Wheat",
+            "irrigation": "Provide regular irrigation during the growing period.",
+            "rain_advice": "Avoid excessive irrigation during periods of heavy rainfall.",
+            "temperature": "Suitable temperature is approximately 15°C to 25°C.",
+            "recommendation": "Monitor soil moisture and protect the crop from waterlogging."
+        },
+
+        "rice": {
+            "crop": "Rice",
+            "irrigation": "Maintain adequate water in the field during the growing stage.",
+            "rain_advice": "Ensure proper drainage during excessive rainfall.",
+            "temperature": "Suitable temperature is approximately 20°C to 35°C.",
+            "recommendation": "Monitor water levels and check regularly for pests and diseases."
+        },
+
+        "cotton": {
+            "crop": "Cotton",
+            "irrigation": "Provide irrigation when soil moisture becomes low.",
+            "rain_advice": "Avoid waterlogging and ensure proper drainage.",
+            "temperature": "Suitable temperature is approximately 21°C to 30°C.",
+            "recommendation": "Monitor soil moisture and regularly inspect plants for pests."
+        },
+
+        "sugarcane": {
+            "crop": "Sugarcane",
+            "irrigation": "Provide regular irrigation, especially during dry periods.",
+            "rain_advice": "Ensure proper drainage during heavy rainfall.",
+            "temperature": "Suitable temperature is approximately 20°C to 35°C.",
+            "recommendation": "Maintain soil moisture and monitor the crop for pests."
+        }
+    }
+
+    if crop not in advisories:
+        return jsonify({
+            "error": "Crop advisory not available",
+            "crop": crop,
+            "available_crops": list(advisories.keys())
+        }), 404
+
+    return jsonify({
+        "status": "success",
+        "advisory": advisories[crop]
+    })
 if __name__ == "__main__":
     app.run(debug=True)
